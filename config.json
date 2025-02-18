@@ -1,0 +1,24 @@
+{
+    "config_exe": {
+        "path": "C:\\Users\\deminid\\source\\repos\\Test\\Release\\Test.exe -data"
+    },
+    "config_bd": {
+        "dbname": "postgres",
+        "user": "postgres",
+        "password": "rekb,zrf",
+        "host": "localhost",
+        "port": "5432"
+    },
+    "sensor_coefficients": {
+        "force": {"k": 4.92005, "b": -0.031},
+        "displacement": {"k": 10.0729, "b": 140.476},
+        "temperature": {"k": 4.92005, "b": -0.031},
+        "rpm": {"k": 10, "b": 0}
+    },
+    "graph_limits": {
+        "force": {"y_min": 0, "y_max": 100},
+        "displacement": {"y_min": 0, "y_max": 100},
+        "temperature": {"y_min": 0, "y_max": 100},
+        "rpm": {"y_min": 0, "y_max": 300}
+    }
+}
