@@ -1,22 +1,27 @@
 import numpy as np
+import data_read
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt
 
-
-# test git
-git = True
+DB = data_read.DataRead()
 
 # Генерация тестового сигнала
 np.random.seed(42)
-fs = 2500  # Частота дискретизации
+
+frame = 2
+fs = 2045 * frame  # Частота дискретизации
 t = np.linspace(0, 1, fs, endpoint=False)  # Временной массив
-frequency = 5  # Частота основного сигнала
+frequency = frame  # Частота основного сигнала
 amplitude = 1  # Амплитуда основного сигнала
 noise_level = 0.5  # Уровень шума
 
-signal = amplitude * np.sin(2 * np.pi * frequency * t)  # Основной сигнал
-noise = noise_level * np.random.normal(size=t.shape)  # Шум
-noisy_signal = signal + noise  # Сигнал с шумом
+# signal = amplitude * np.sin(2 * np.pi * frequency * t)  # Основной сигнал
+# noise = noise_level * np.random.normal(size=t.shape)  # Шум
+# noisy_signal = signal + noise  # Сигнал с шумом
+
+noisy_signal = []
+filtered_signal = []
+noise_estimated = []
 
 # 1. Фильтрация для выделения основной гармоники
 def lowpass_filter(data, cutoff, fs, order=5):
@@ -25,39 +30,51 @@ def lowpass_filter(data, cutoff, fs, order=5):
     b, a = butter(order, normal_cutoff, btype='low', analog=False)
     return filtfilt(b, a, data)
 
-filtered_signal = lowpass_filter(noisy_signal, cutoff=frequency * 2, fs=fs)  # Фильтруем выше удвоенной частоты
-filtered_signal = filtered_signal[:2000]
+def update():
+    data = DB.bd_read_last("data_records", frame, True)
+    global t, noisy_signal, filtered_signal, noise_estimated
 
-t = t[:2000]
-# 2. Вычисление шума
-noisy_signal = noisy_signal[:2000]
-noise_estimated = noisy_signal - filtered_signal
+    if data:
+        # Извлекаем массив array_1 из записи
+        data_frames = [row[4] for row in data[::-1]]  # Предполагается, что array_1 находится в четвертом столбце
+        noisy_signal = np.array(data_frames).ravel()  # Преобразуем в массив NumPy
 
-# 3. Определение амплитуд
-main_amplitude = np.max(np.abs(filtered_signal))  # Амплитуда основного сигнала
-noise_amplitude = np.mean(np.abs(noise_estimated))  # Амплитуда шума
+    filtered_signal = lowpass_filter(noisy_signal, cutoff=frequency * 2, fs=fs)  # Фильтруем выше удвоенной частоты
+    filtered_signal = filtered_signal[:fs]
 
-# 4. Вычисление процента шума
-noise_percentage = (noise_amplitude / main_amplitude) * 100
+    t = t[:fs]
+    # 2. Вычисление шума
+    noisy_signal = noisy_signal[:fs]
+    noise_estimated = noisy_signal - filtered_signal
 
-# Вывод результатов
-print(f"Амплитуда основного сигнала: {main_amplitude:.2f}")
-print(f"Амплитуда шума: {noise_amplitude:.2f}")
-print(f"Процент шума относительно основного сигнала: {noise_percentage:.2f}%")
+    # 3. Определение амплитуд
+    main_amplitude = np.max(np.abs(filtered_signal))  # Амплитуда основного сигнала
+    noise_amplitude = np.max(np.abs(noise_estimated))  # Амплитуда шума
 
-# Визуализация
-plt.figure(figsize=(12, 6))
-plt.subplot(3, 1, 1)
-plt.plot(t, noisy_signal, label="Сигнал с шумом")
-plt.legend()
+    # 4. Вычисление процента шума
+    noise_percentage = (noise_amplitude / main_amplitude) * 100
 
-plt.subplot(3, 1, 2)
-plt.plot(t, filtered_signal, label="Основной сигнал", color="orange")
-plt.legend()
+    # Вывод результатов
+    print(f"Амплитуда основного сигнала: {main_amplitude:.2f}")
+    print(f"Амплитуда шума: {noise_amplitude:.2f}")
+    print(f"Процент шума относительно основного сигнала: {noise_percentage:.2f}%")
 
-plt.subplot(3, 1, 3)
-plt.plot(t, noise_estimated, label="Шум", color="red")
-plt.legend()
+    # Визуализация
+    plt.figure(figsize=(12, 6))
+    plt.subplot(3, 1, 1)
+    plt.plot(t, noisy_signal, label="Сигнал с шумом")
+    plt.legend()
 
-plt.tight_layout()
-plt.show()
+    plt.subplot(3, 1, 2)
+    plt.plot(t, filtered_signal, label="Основной сигнал", color="orange")
+    plt.legend()
+
+    plt.subplot(3, 1, 3)
+    plt.plot(t, noise_estimated, label="Шум", color="red")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+        update()
