@@ -2,6 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt
 
+
+# test git
+git = True
+
 # Генерация тестового сигнала
 np.random.seed(42)
 fs = 2500  # Частота дискретизации
