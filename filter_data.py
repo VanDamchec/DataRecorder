@@ -93,8 +93,6 @@ def count_turn(data, channel = 4, threshold = 5000, sampling_rate=10_000, min_co
     #Находим индексы импульсов
     index_threshold = list(find_intervals(above_threshold, min_count))
 
-    print(index_threshold)
-
     # Шаг 1: Вычисление длительности между импульсами
     if len(index_threshold) < 2:
         print(f"Меньше чем {min_count} импульсов. Индексы импульса : {index_threshold}")
@@ -111,22 +109,23 @@ def count_turn(data, channel = 4, threshold = 5000, sampling_rate=10_000, min_co
 
     # Шаг 2: Вычисляем среднюю длительность между импульсами
     pulse_durations = np.mean(pulse_durations_list)
-    print(f"Средняя длительность между двумя импульсами: {pulse_durations}")
+    #print(f"Средняя длительность между двумя импульсами: {pulse_durations}")
 
     # Шаг 3: Переводим длительности импульсов в секунды
     pulse_durations_seconds = pulse_durations / sampling_rate if sampling_rate > 0 else 0
-    print(f"Длительности импульсов в секундах: {pulse_durations_seconds}")
+    #print(f"Длительности импульсов в секундах: {pulse_durations_seconds}")
 
     # Шаг 4: Вычисляем RPM для каждого импульса
     rpm_values = 60 / pulse_durations_seconds if pulse_durations_seconds > 0 else 0
-    print(f"Количество оборотов в минуту: {rpm_values}")
+    #print(f"Количество оборотов в минуту: {rpm_values}")
 
     # Собираем индексы концов импульсов
     index_null = end_indices.tolist()
 
     return len(index_threshold), index_null, pulse_durations, rpm_values
 
-def filter_data(data, channel = 1, freq = 10, fs = 2045, only_filter=True, index_null = -1):
+def filter_data(data, channel = 1, freq = 10, fs = 2045, only_filter=True,
+                negative_data=True, index_null = -1):
     main_amplitude = []
     noise_amplitude = []
     noise_percentage = 0
@@ -148,16 +147,24 @@ def filter_data(data, channel = 1, freq = 10, fs = 2045, only_filter=True, index
     else:
         for i in range(len(index_null) - 1):
             wave = filtered_data[index_null[i]:index_null[i+1]]
-            max_amp = np.max(wave[wave > 0], initial=1)
-            min_amp = np.min(wave[wave < 0], initial=0)
+            if negative_data:
+                max_amp = np.max(wave[wave > 0], initial=1)
+                min_amp = np.min(wave[wave < 0], initial=0)
+            else:
+                max_amp = np.max(wave, initial=1)
+                min_amp = np.min(wave, initial=0)
             main_amplitude.append(max_amp+abs(min_amp))
         print(main_amplitude)
         main_amplitude = np.mean(main_amplitude)
 
         for i in range(len(index_null) - 1):
             wave = noise[index_null[i]:index_null[i + 1]]
-            max_amp = np.max(wave[wave > 0], initial=1)
-            min_amp = np.min(wave[wave < 0], initial=0)
+            if negative_data:
+                max_amp = np.max(wave[wave > 0], initial=1)
+                min_amp = np.min(wave[wave < 0], initial=0)
+            else:
+                max_amp = np.max(wave, initial=1)
+                min_amp = np.min(wave, initial=0)
             noise_amplitude.append(max_amp + abs(min_amp))
         print(noise_amplitude)
         noise_amplitude = np.mean(noise_amplitude)

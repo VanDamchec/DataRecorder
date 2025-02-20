@@ -13,7 +13,7 @@
         "force": {"k": 4.92005, "b": -0.031},
         "displacement": {"k": 10.0729, "b": 140.476},
         "temperature": {"k": 4.92005, "b": -0.031},
-        "rpm": {"k": 10, "b": 0}
+        "rpm": {"k": 1, "b": 0}
     },
     "graph_limits": {
         "force": {"y_min": 0, "y_max": 100},

@@ -49,7 +49,7 @@ class Sensor:
         # смещение
         self.b = 0
 
-    def update_data(self, new_values):
+    def update_data(self, new_values, transform=True):
         """
         Обновление данных графика.
 
@@ -57,8 +57,11 @@ class Sensor:
         """
         for value in new_values[::-1]:  # Добавляем новые значения в обратном порядке
             self.y = np.roll(self.y, -1)  # Сдвигаем массив влево
-            self.phys_value(value, self.k, self.b)
-            self.y[-1] = self.pv  # Добавляем новое значение в конец
+            if transform:
+                self.phys_value(value, self.k, self.b)
+                self.y[-1] = self.pv  # Добавляем новое значение в конец
+            else:
+                self.y[-1] = value
 
     def update_graph(self):
         """
@@ -455,33 +458,64 @@ class MainWindow(QMainWindow):
 
     def update_graph4(self, frame):
         frame = 20
-        data = self.DB_real.bd_read_last("data_records", 10, False)
+        fs = 2045 * frame  # Частота дискретизации
+        frequency = 5 * frame  # Частота основного сигнала
+        data = self.DB_real.bd_read_last("data_records", frame, False)
 
         count_impulse, index_null, pulse_durations, rpm_values = filter_data.count_turn(data, channel=4, min_count=6)
-        print(count_impulse, index_null, pulse_durations, rpm_values)
+        print(f"Колво {count_impulse}, Индексы {index_null}, Размер {pulse_durations}, Обороты {rpm_values}")
 
-        # Получаем последние 10 записей из базы данных
-        data = self.DB_mean.bd_read_last("mean_records", 10, True)
+        (noisy_strength, filtered_strength,
+         noise_estimated, strength_ampl,
+         noise_strength_ampl,
+         noise_strength_perc) = filter_data.filter_data(data=data, channel=1, freq=frequency,
+                                                          fs=fs, only_filter=False, negative_data=True,
+                                                            index_null=index_null)
+
+        print(f"{strength_ampl}, {noise_strength_ampl}, {noise_strength_perc}")
+
+        (noisy_move, filtered_move,
+         noise_estimated, move_ampl,
+         noise_move_ampl,
+         noise_move_perc) = filter_data.filter_data(data=data, channel=2, freq=frequency,
+                                                        fs=fs, only_filter=False, negative_data=False,
+                                                         index_null=index_null)
+
+        print(f"{move_ampl}, {noise_move_ampl}, {noise_move_perc}")
+
         """Обновление данных для 4 горизонтальных графиков."""
-        self.t4 += 0.1
-
         if not data:
             return tuple(graph.line for graph in self.Sensors)
 
         # Извлекаем значения mean1, mean2, mean3, mean4 из данных
         mean_values = [
-            [row[4] for row in data],  # mean1_values
-            [row[5] for row in data],  # mean2_values
-            [row[6] for row in data],  # mean3_values
-            [row[7] for row in data]  # mean4_values
+            [strength_ampl],  # mean1_values
+            [move_ampl],  # mean2_values
+            [np.mean(filter_data.data_export(data, 3))],  # mean3_values
+            [rpm_values]  # mean4_values
         ]
 
         # Обновляем каждый график
-        for i, graph_updater in enumerate(self.Sensors):
-            graph_updater.update_data(mean_values[i])  # Обновляем данные
-            graph_updater.update_graph()  # Обновляем график
-            #graph_updater.update_ylim()  # Обновляем границы оси Y
-            graph_updater.update_label()  # Обновляем текстовую метку
+        # Усилие
+        self.Sensors[0].update_data(mean_values[0],transform=True)  # Обновляем данные
+        self.Sensors[0].update_graph()  # Обновляем график
+        #self.Sensors[0].update_ylim()  # Обновляем границы оси Y
+        self.Sensors[0].update_label()  # Обновляем текстовую метку
+        # Перемещение
+        self.Sensors[1].update_data(mean_values[1], transform=True)  # Обновляем данные
+        self.Sensors[1].update_graph()  # Обновляем график
+        # self.Sensors[1].update_ylim()  # Обновляем границы оси Y
+        self.Sensors[1].update_label()  # Обновляем текстовую метку
+        # Температура
+        self.Sensors[2].update_data(mean_values[2], transform=True)  # Обновляем данные
+        self.Sensors[2].update_graph()  # Обновляем график
+        # self.Sensors[2].update_ylim()  # Обновляем границы оси Y
+        self.Sensors[2].update_label()  # Обновляем текстовую метку
+        # Температура
+        self.Sensors[3].update_data(mean_values[3], transform=False)  # Обновляем данные
+        self.Sensors[3].update_graph()  # Обновляем график
+        # self.Sensors[2].update_ylim()  # Обновляем границы оси Y
+        self.Sensors[3].update_label()  # Обновляем текстовую метку
 
         return tuple(graph.line for graph in self.Sensors)
 

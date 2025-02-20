@@ -174,7 +174,7 @@ def read_process_output(process):
     data_queue.put(None)  # Сигнал о завершении работы потока
 
 
-def save_to_file():
+def save_to_file(show_plot=False):
     """Функция для сохранения данных в файл и обновления массивов dataplot, dataplot2, dataplot3, dataplot4."""
     global dataplot, dataplot2, dataplot3, dataplot4, prev_counter, bd_connect, bd_cursor
     table_name = f"data_records"
@@ -203,30 +203,24 @@ def save_to_file():
                     data_iter = data_list[8].split(";")
                     # Преобразуем данные из data_iter в числа для первой линии
                     new_data1 = [int(x) for x in data_iter[9:-2:4]]
-                    mean1 = np.mean(new_data1) if new_data1 else 0
-                    dataplot = np.append(dataplot, new_data1)[-MAX_DATAPOINTS:]
-
                     # Данные для второй линии
                     new_data2 = [int(x) for x in data_iter[10:-2:4]]
-                    mean2 = np.mean(new_data2) if new_data2 else 0
-                    dataplot2 = np.append(dataplot2, new_data2)[-MAX_DATAPOINTS:]
-
                     # Данные для третьей линии
                     new_data3 = [int(x) for x in data_iter[11:-2:4]]
-                    mean3 = np.mean(new_data3) if new_data3 else 0
-                    dataplot3 = np.append(dataplot3, new_data3)[-MAX_DATAPOINTS:]
-
                     # Данные для четвёртой линии
                     new_data4 = [int(x) for x in data_iter[12:-2:4]]
-                    mean4 = np.mean(new_data4) if new_data4 else 0
-                    dataplot4 = np.append(dataplot4, new_data4)[-MAX_DATAPOINTS:]
 
                     time = f"{data_list[4]}:{data_list[5]}:{data_list[6]}.{data_list[7]}"
 
-                    bd_write_data(bd_connect, "data_records" , "2025-02-07", counter, time, new_data4, new_data1, new_data2, new_data3)
-                    bd_write_mean(bd_connect, "mean_records" , "2025-02-07", counter, time, mean4, mean1, mean2, mean3)
+                    bd_write_data(bd_connect, "data_records" , "2025-02-07", counter, time,
+                                  new_data4, new_data1, new_data2, new_data3)
 
-                    print(f"Counter {counter} Mean 1:{mean1:.0f} 2:{mean2:.0f} 3:{mean3:.0f} 4:{mean4:.0f}")
+                    if show_plot:
+                        dataplot = np.append(dataplot, new_data1)[-MAX_DATAPOINTS:]
+                        dataplot2 = np.append(dataplot2, new_data2)[-MAX_DATAPOINTS:]
+                        dataplot3 = np.append(dataplot3, new_data3)[-MAX_DATAPOINTS:]
+                        dataplot4 = np.append(dataplot4, new_data4)[-MAX_DATAPOINTS:]
+
     print("Файл сохранен.")
 
 def update(frame):
@@ -281,7 +275,7 @@ def main(path_to_file, show_plot=True, handle_esc=True, in_stop_flag=None):
 
     # Создание потоков
     reading_thread = threading.Thread(target=read_process_output, args=(process,))
-    saving_thread = threading.Thread(target=save_to_file)
+    saving_thread = threading.Thread(target=save_to_file, args=(show_plot,))
 
     # Запуск потоков
     reading_thread.start()
