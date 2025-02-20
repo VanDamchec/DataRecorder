@@ -10,6 +10,7 @@ from matplotlib.animation import FuncAnimation
 import numpy as np
 import data_record
 import data_read
+import filter_data
 from multiprocessing import Process, Event, freeze_support
 
 # Создаем разделяемый флаг завершения
@@ -453,6 +454,12 @@ class MainWindow(QMainWindow):
         return self.line2,
 
     def update_graph4(self, frame):
+        frame = 20
+        data = self.DB_real.bd_read_last("data_records", 10, False)
+
+        count_impulse, index_null, pulse_durations, rpm_values = filter_data.count_turn(data, channel=4, min_count=6)
+        print(count_impulse, index_null, pulse_durations, rpm_values)
+
         # Получаем последние 10 записей из базы данных
         data = self.DB_mean.bd_read_last("mean_records", 10, True)
         """Обновление данных для 4 горизонтальных графиков."""
