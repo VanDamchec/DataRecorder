@@ -1,7 +1,10 @@
 import sys
 import os
 import json
-from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QComboBox, QRadioButton, QCheckBox, QFileDialog, QProgressBar, QTextEdit, QFrame
+from PySide2.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+                               QGridLayout, QLabel, QLineEdit, QPushButton, QTableWidget,
+                               QTableWidgetItem, QComboBox, QRadioButton, QCheckBox, QFileDialog,
+                               QProgressBar, QTextEdit, QFrame)
 from PySide2.QtCore import Qt, QTimer, QThread, Signal
 from PySide2.QtGui import QFont
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -41,13 +44,16 @@ class Sensor:
         self.y_min = y_min
 
         self.ax.set_ylim(self.y_min, self.y_max)
-
+        # Округление
+        self.digits = 2
         # Коэфициент преобразования АЦП в Вольты
         self.kadc = 0.00125
         # коэффициент масштабирования
         self.k = 1
         # смещение
         self.b = 0
+        # коэфициент преобразования единиц измерения
+        self.t = 1
 
     def update_data(self, new_values, transform=True):
         """
@@ -58,10 +64,10 @@ class Sensor:
         for value in new_values[::-1]:  # Добавляем новые значения в обратном порядке
             self.y = np.roll(self.y, -1)  # Сдвигаем массив влево
             if transform:
-                self.phys_value(value, self.k, self.b)
+                self.phys_value(value, self.k, self.b, self.t, self.digits)
                 self.y[-1] = self.pv  # Добавляем новое значение в конец
             else:
-                self.y[-1] = value
+                self.y[-1] = round(value, self.digits)
 
     def update_graph(self):
         """
@@ -83,15 +89,15 @@ class Sensor:
                 padding = 0.1 * range_val if range_val > 0 else 1  # Добавляем отступ
                 self.ax.set_ylim(min_val - padding, max_val + padding)
 
-    def phys_value(self, val, k, b, iDigits=2):
-        self.pv = round(val * self.kadc * k + b, iDigits)
+    def phys_value(self, val, k, b, t, iDigits=2):
+        self.pv = round((val * self.kadc * k + b) * t, iDigits)
 
     def update_label(self):
         """
         Обновление текстовой метки с последним значением.
         """
         if self.param_value is not None:
-            self.param_value.setText(f"{self.y[-1]:.2f}")
+            self.param_value.setText(f"{self.y[-1]}")
 
 
 class AnimationThread(QThread):
@@ -116,6 +122,7 @@ class AnimationThread(QThread):
         self.running = False  # Остановка потока
 
 
+
 class MainWindow(QMainWindow):
     def __init__(self, data_record_process=None):
         super().__init__()
@@ -138,6 +145,16 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(main_widget)
         main_layout = QVBoxLayout(main_widget)
 
+        # Верхняя секция
+        self.top_layout_init(main_layout)
+
+        # Средняя секция с тремя горизонтальными областями
+        self.middle_layout_init(main_layout)
+
+        # Нижняя секция с тремя горизонтальными областями
+        self.bottom_layout_init(main_layout)
+
+    def top_layout_init(self, main_layout):
         # Верхняя секция с тремя горизонтальными областями
         top_section = QFrame()
         top_section.setFrameShape(QFrame.StyledPanel)
@@ -209,7 +226,7 @@ class MainWindow(QMainWindow):
             cache_frame_data=False
         )
 
-        # Средняя секция с тремя горизонтальными областями
+    def middle_layout_init(self, main_layout):
         middle_section = QFrame()
         middle_section.setFrameShape(QFrame.StyledPanel)
         middle_layout = QHBoxLayout(middle_section)
@@ -287,7 +304,6 @@ class MainWindow(QMainWindow):
         lines4 = [self.lines4_1, self.lines4_2, self.lines4_3, self.lines4_4]  # Линии графиков
         axs = [self.axs[0], self.axs[1], self.axs[2], self.axs[3]]  # Оси графиков
 
-
         # Настройка осей
         for i, ax in enumerate(self.axs):
             ax.grid(True)
@@ -320,23 +336,19 @@ class MainWindow(QMainWindow):
 
         # Создаем словарь для хранения меток param_value
         self.param_values = {}
-
+        self.noise_values = {}  # Словарь для хранения меток значений "Процент шума"
         self.parameter_labels = ["Усилие на штоке,\n кгс:", "Ход штока,\n мм:", "Температура,\n град:",
-                            "Обороты эксцентрика,\n об/мин:"]
-
-        for label in  self.parameter_labels:
+                                 "Обороты эксцентрика,\n об/мин:"]
+        for label in self.parameter_labels:
             param_layout = QHBoxLayout()
             param_lbl = QLabel(label)
             param_font = QFont()
             param_font.setPointSize(12)  # Устанавливаем размер шрифта 12
             param_lbl.setFont(param_font)
-
             # Выравнивание текста по центру
             param_lbl.setAlignment(Qt.AlignCenter)
-
             # Установка фиксированной ширины метки (например, 150 пикселей)
             param_lbl.setFixedWidth(150)
-
             # Включение переноса слов
             param_lbl.setWordWrap(True)
 
@@ -344,20 +356,48 @@ class MainWindow(QMainWindow):
             param_value = QLabel("0")
             param_value.setAlignment(Qt.AlignCenter)
             param_value.setStyleSheet("""
-                   font-size: 60px; 
-                   color: blue;
-                   background-color: white; 
-                   border: 1px solid black; 
-                   padding: 5px;
-                   margin: 20px;
-               """)
-
+                        font-size: 60px; 
+                        color: blue;
+                        background-color: white; 
+                        border: 1px solid black; 
+                        padding: 5px;
+                        margin: 15px;
+                    """)
             # Добавляем метку в словарь
             self.param_values[label] = param_value
 
             param_layout.addWidget(param_lbl)
             param_layout.addWidget(param_value)
             parameters_layout.addLayout(param_layout)
+
+            # Добавляем "Процент шума" для первых двух параметров
+            if label in ["Усилие на штоке,\n кгс:"]:
+                noise_layout = QHBoxLayout()
+
+                # Метка "Процент шума"
+                noise_lbl = QLabel("Процент шума:")
+                noise_lbl.setFont(param_font)
+                noise_lbl.setAlignment(Qt.AlignCenter)
+                noise_lbl.setFixedWidth(150)
+                noise_lbl.setWordWrap(True)
+
+                # Метка для значения "Процент шума"
+                noise_value = QLabel("0%")
+                noise_value.setAlignment(Qt.AlignCenter)
+                noise_value.setStyleSheet("""
+                            font-size: 20px; 
+                            color: green;
+                            background-color: white; 
+                            border: 1px solid black; 
+                            padding: 5px;
+                            margin: 20px;
+                        """)
+                # Добавляем метку в словарь
+                self.noise_values[label] = noise_value
+
+                noise_layout.addWidget(noise_lbl)
+                noise_layout.addWidget(noise_value)
+                parameters_layout.addLayout(noise_layout)
 
         param_values = [self.param_values.get(label) for label in self.parameter_labels]  # Текстовые метки
         labels = ["Усилие, кгс", "Ход штока, мм", "Температура, град", "Обороты, об/мин"]  # Названия параметров
@@ -369,23 +409,32 @@ class MainWindow(QMainWindow):
                                  y_max=self.config["graph_limits"]["force"]["y_max"])
         self.Sensors[0].k = self.config["sensor_coefficients"]["force"]["k"]
         self.Sensors[0].b = self.config["sensor_coefficients"]["force"]["b"]
+        self.Sensors[0].t = self.config["sensor_coefficients"]["force"]["t"]
+        self.Sensors[0].digits = self.config["sensor_coefficients"]["force"]["iDigits"]
+
         # Датчик перемещения
         self.Sensors[1] = Sensor(self.x4, lines4[1], axs[1], param_values[1], labels[1],
                                  y_max=self.config["graph_limits"]["displacement"]["y_max"])
         self.Sensors[1].k = self.config["sensor_coefficients"]["displacement"]["k"]
         self.Sensors[1].b = self.config["sensor_coefficients"]["displacement"]["b"]
+        self.Sensors[1].t = self.config["sensor_coefficients"]["displacement"]["t"]
+        self.Sensors[1].digits = self.config["sensor_coefficients"]["displacement"]["iDigits"]
         # Датчик температуры
         self.Sensors[2] = Sensor(self.x4, lines4[2], axs[2], param_values[2], labels[2],
                                  y_max=self.config["graph_limits"]["temperature"]["y_max"])
         self.Sensors[2].k = self.config["sensor_coefficients"]["temperature"]["k"]
         self.Sensors[2].b = self.config["sensor_coefficients"]["temperature"]["b"]
+        self.Sensors[2].t = self.config["sensor_coefficients"]["temperature"]["t"]
+        self.Sensors[2].digits = self.config["sensor_coefficients"]["temperature"]["iDigits"]
         # Датчик оборотов
         self.Sensors[3] = Sensor(self.x4, lines4[3], axs[3], param_values[3], labels[3],
                                  y_max=self.config["graph_limits"]["rpm"]["y_max"])
         self.Sensors[3].k = self.config["sensor_coefficients"]["rpm"]["k"]
         self.Sensors[3].b = self.config["sensor_coefficients"]["rpm"]["b"]
+        self.Sensors[3].t = self.config["sensor_coefficients"]["rpm"]["t"]
+        self.Sensors[3].digits = self.config["sensor_coefficients"]["rpm"]["iDigits"]
 
-        # Нижняя секция с тремя горизонтальными областями
+    def bottom_layout_init(self, main_layout):
         bottom_section = QFrame()
         bottom_section.setFrameShape(QFrame.StyledPanel)
         bottom_layout = QHBoxLayout(bottom_section)
@@ -440,81 +489,62 @@ class MainWindow(QMainWindow):
         data = self.DB_real.bd_read_last("data_records", 4, True)
         if data:
             # Извлекаем массив array_1 из записи
-            array_1 = filter_data.data_export(data, 2)
-
+            array_1 = filter_data.data_export(data, 1)
             # Определяем количество новых значений
             new_values_count = len(array_1)
-
             # Обновляем данные графика: сдвигаем старые значения влево и добавляем новые
             self.y2 = np.concatenate((self.y2[new_values_count:], array_1))
-
             # Обновляем данные графика
             self.line2.set_ydata(self.y2)
-            # Обновляем пределы осей, если необходимо
-            #self.ax2.relim()
-            #self.ax2.autoscale_view()
         return self.line2,
 
     def update_graph4(self, frame):
-        frame = 30
+        frame = 50
         fs = 1024 * frame  # Частота дискретизации
         frequency = 5 * frame  # Частота основного сигнала
+
+        # Чтение данных из базы данных
         data = self.DB_real.bd_read_last("data_records", frame, False)
-
-        count_impulse, index_null, pulse_durations, rpm_values = filter_data.count_turn(data, channel=4, min_count=6)
-        print(f"Колво {count_impulse}, Индексы {index_null}, Размер {pulse_durations}, Обороты {rpm_values}")
-
-        (noisy_strength, filtered_strength,
-         noise_estimated, strength_ampl,
-         noise_strength_ampl,
-         noise_strength_perc) = filter_data.filter_data(data=data, channel=1, freq=frequency,
-                                                          fs=fs, only_filter=False, negative_data=True,
-                                                            index_null=index_null)
-
-        print(f"{strength_ampl}, {noise_strength_ampl}, {noise_strength_perc}")
-
-        (noisy_move, filtered_move,
-         noise_estimated, move_ampl,
-         noise_move_ampl,
-         noise_move_perc) = filter_data.filter_data(data=data, channel=2, freq=frequency,
-                                                        fs=fs, only_filter=False, negative_data=False,
-                                                         index_null=index_null)
-
-        print(f"{move_ampl}, {noise_move_ampl}, {noise_move_perc}")
-
-        """Обновление данных для 4 горизонтальных графиков."""
         if not data:
             return tuple(graph.line for graph in self.Sensors)
 
-        # Извлекаем значения mean1, mean2, mean3, mean4 из данных
+        # Обработка данных для подсчета оборотов
+        count_impulse, index_null, pulse_durations, rpm_values = filter_data.count_turn(data, channel=4, min_count=6)
+        print(f"Кол-во: {count_impulse}, Индексы: {index_null}, Размер: {pulse_durations}, Обороты: {rpm_values}")
+
+        # Фильтрация данных для усилия и перемещения
+        def process_channel(channel, negative_data):
+            return filter_data.filter_data(
+                data=data,
+                channel=channel,
+                freq=frequency,
+                fs=fs,
+                only_filter=False,
+                negative_data=negative_data,
+                index_null=index_null
+            )
+
+        (noisy_strength, filtered_strength, _, strength_ampl, _, noise_strength_perc) = process_channel(1, True)
+        (noisy_move, filtered_move, _, move_ampl, _, noise_move_perc) = process_channel(2, False)
+
+        # Обновление значения "Процент шума" для усилия
+        self.noise_values["Усилие на штоке,\n кгс:"].setText(f"{noise_strength_perc:.2f}%")
+
+        # Подготовка значений для графиков
         mean_values = [
-            [strength_ampl],  # mean1_values
-            [move_ampl],  # mean2_values
-            [np.mean(filter_data.data_export(data, 3))],  # mean3_values
-            [rpm_values]  # mean4_values
+            [strength_ampl],  # Усилие
+            [move_ampl],  # Перемещение
+            [np.mean(filter_data.data_export(data, 3))],  # Температура
+            [rpm_values]  # Обороты
         ]
 
-        # Обновляем каждый график
-        # Усилие
-        self.Sensors[0].update_data(mean_values[0],transform=True)  # Обновляем данные
-        self.Sensors[0].update_graph()  # Обновляем график
-        #self.Sensors[0].update_ylim()  # Обновляем границы оси Y
-        self.Sensors[0].update_label()  # Обновляем текстовую метку
-        # Перемещение
-        self.Sensors[1].update_data(mean_values[1], transform=True)  # Обновляем данные
-        self.Sensors[1].update_graph()  # Обновляем график
-        # self.Sensors[1].update_ylim()  # Обновляем границы оси Y
-        self.Sensors[1].update_label()  # Обновляем текстовую метку
-        # Температура
-        self.Sensors[2].update_data(mean_values[2], transform=True)  # Обновляем данные
-        self.Sensors[2].update_graph()  # Обновляем график
-        # self.Sensors[2].update_ylim()  # Обновляем границы оси Y
-        self.Sensors[2].update_label()  # Обновляем текстовую метку
-        # Температура
-        self.Sensors[3].update_data(mean_values[3], transform=False)  # Обновляем данные
-        self.Sensors[3].update_graph()  # Обновляем график
-        # self.Sensors[2].update_ylim()  # Обновляем границы оси Y
-        self.Sensors[3].update_label()  # Обновляем текстовую метку
+        # Обновление графиков
+        for i, mean_value in enumerate(mean_values):
+            transform = i != 3  # Для оборотов (индекс 3) transform=False
+            self.Sensors[i].update_data(mean_value, transform=transform)
+            self.Sensors[i].update_graph()
+            # self.Sensors[i].update_ylim()  # Раскомментировать, если нужно обновлять границы оси Y
+            self.Sensors[i].update_label()
 
         return tuple(graph.line for graph in self.Sensors)
 

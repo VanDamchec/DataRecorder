@@ -212,7 +212,6 @@ def save_to_file(show_plot=False):
 
                     time = f"{data_list[4]}:{data_list[5]}:{data_list[6]}.{data_list[7]}"
 
-                    print(len(new_data4))
                     bd_write_data(bd_connect, "data_records" , "2025-02-07", counter, time,
                                   new_data1, new_data2, new_data3, new_data4)
 

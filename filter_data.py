@@ -11,8 +11,8 @@ DB = data_read.DataRead()
 # Генерация тестового сигнала
 np.random.seed(42)
 
-frame = 20
-fs = 2046 * frame  # Частота дискретизации
+frame = 5
+fs = 2045 * frame  # Частота дискретизации
 t = np.linspace(0, fs, fs, endpoint=False)  # Временной массив
 frequency = 5 * frame  # Частота основного сигнала
 amplitude = 1  # Амплитуда основного сигнала
@@ -150,30 +150,25 @@ def filter_data(data, channel = 1, freq = 10, fs = 2045, only_filter=True,
             if negative_data:
                 max_amp = np.max(wave[wave > 0], initial=1)
                 min_amp = np.min(wave[wave < 0], initial=0)
-                main_amplitude.append(max_amp + abs(min_amp))
+                main_amplitude.append(max_amp - abs(min_amp))
             else:
                 max_amp = np.max(wave, initial=1)
                 min_amp = np.min(wave)
-            main_amplitude.append(max_amp - min_amp)
-            print(f"min {min_amp} max {max_amp}")
-        print(main_amplitude)
+                main_amplitude.append(max_amp - min_amp)
+
         main_amplitude = np.mean(main_amplitude)
 
         for i in range(len(index_null) - 1):
             wave = noise[index_null[i]:index_null[i + 1]]
-            if negative_data:
-                max_amp = np.max(wave[wave > 0], initial=1)
-                min_amp = np.min(wave[wave < 0], initial=0)
-            else:
-                max_amp = np.max(wave, initial=1)
-                min_amp = np.min(wave, initial=0)
+            max_amp = np.max(wave[wave > 0], initial=1)
+            min_amp = np.min(wave, initial=0)
             noise_amplitude.append(max_amp + abs(min_amp))
-        print(noise_amplitude)
+
         noise_amplitude = np.mean(noise_amplitude)
 
     # 4. Вычисление процента шума
     if main_amplitude > 0:
-        noise_percentage = (noise_amplitude / main_amplitude) * 100
+        noise_percentage = (noise_amplitude / (main_amplitude*2)) * 100
 
     return  noisy_data, filtered_data, noise, main_amplitude, noise_amplitude, noise_percentage
 
@@ -182,7 +177,7 @@ def update():
 
     count_impulse, index_null, pulse_durations, rpm_values = count_turn(data, channel=4, min_count=5)
 
-    print(index_null)
+    print(index_null, pulse_durations, rpm_values)
 
     # Запоминаем начальное время
     start_time = time.perf_counter()
@@ -191,7 +186,7 @@ def update():
 
     (noisy_signal, filtered_signal,
      noise_estimated,main_amplitude,
-     noise_amplitude, noise_percentage ) = filter_data(data=data, channel=2, freq=frequency,
+     noise_amplitude, noise_percentage ) = filter_data(data=data, channel=1, freq=frequency,
                                                        fs=fs, only_filter=False, index_null=index_null,
                                                        negative_data=False)
 
