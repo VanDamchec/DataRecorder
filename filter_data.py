@@ -12,7 +12,7 @@ DB = data_read.DataRead()
 np.random.seed(42)
 
 frame = 20
-fs = 2045 * frame  # Частота дискретизации
+fs = 2046 * frame  # Частота дискретизации
 t = np.linspace(0, fs, fs, endpoint=False)  # Временной массив
 frequency = 5 * frame  # Частота основного сигнала
 amplitude = 1  # Амплитуда основного сигнала
@@ -150,10 +150,12 @@ def filter_data(data, channel = 1, freq = 10, fs = 2045, only_filter=True,
             if negative_data:
                 max_amp = np.max(wave[wave > 0], initial=1)
                 min_amp = np.min(wave[wave < 0], initial=0)
+                main_amplitude.append(max_amp + abs(min_amp))
             else:
                 max_amp = np.max(wave, initial=1)
-                min_amp = np.min(wave, initial=0)
-            main_amplitude.append(max_amp+abs(min_amp))
+                min_amp = np.min(wave)
+            main_amplitude.append(max_amp - min_amp)
+            print(f"min {min_amp} max {max_amp}")
         print(main_amplitude)
         main_amplitude = np.mean(main_amplitude)
 
@@ -176,7 +178,7 @@ def filter_data(data, channel = 1, freq = 10, fs = 2045, only_filter=True,
     return  noisy_data, filtered_data, noise, main_amplitude, noise_amplitude, noise_percentage
 
 def update():
-    data = DB.bd_read_last("data_records", frame, True)
+    data = DB.bd_read_last("data_records_example", frame, True)
 
     count_impulse, index_null, pulse_durations, rpm_values = count_turn(data, channel=4, min_count=5)
 
@@ -189,8 +191,9 @@ def update():
 
     (noisy_signal, filtered_signal,
      noise_estimated,main_amplitude,
-     noise_amplitude, noise_percentage ) = filter_data(data=data, channel=1, freq=frequency,
-                                                       fs=fs, only_filter=False, index_null=index_null)
+     noise_amplitude, noise_percentage ) = filter_data(data=data, channel=2, freq=frequency,
+                                                       fs=fs, only_filter=False, index_null=index_null,
+                                                       negative_data=False)
 
     # Запоминаем конечное время
     end_time = time.perf_counter()

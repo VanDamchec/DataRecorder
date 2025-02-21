@@ -437,11 +437,10 @@ class MainWindow(QMainWindow):
     def update_graph2(self, frame):
         """Обновление данных второго графика."""
         # Получаем последние 2 записи из базы данных
-        data = self.DB_real.bd_read_last("data_records", 2, True)
+        data = self.DB_real.bd_read_last("data_records", 4, True)
         if data:
             # Извлекаем массив array_1 из записи
-            array_1 = data[0][4]  # Предполагается, что array_1 находится в четвертом столбце
-            array_1 = np.array(array_1)  # Преобразуем в массив NumPy
+            array_1 = filter_data.data_export(data, 2)
 
             # Определяем количество новых значений
             new_values_count = len(array_1)
@@ -452,13 +451,13 @@ class MainWindow(QMainWindow):
             # Обновляем данные графика
             self.line2.set_ydata(self.y2)
             # Обновляем пределы осей, если необходимо
-            # self.ax2.relim()
-            # self.ax2.autoscale_view()
+            #self.ax2.relim()
+            #self.ax2.autoscale_view()
         return self.line2,
 
     def update_graph4(self, frame):
-        frame = 20
-        fs = 2045 * frame  # Частота дискретизации
+        frame = 30
+        fs = 1024 * frame  # Частота дискретизации
         frequency = 5 * frame  # Частота основного сигнала
         data = self.DB_real.bd_read_last("data_records", frame, False)
 

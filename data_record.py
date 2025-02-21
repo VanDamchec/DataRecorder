@@ -12,7 +12,7 @@ import time
 bd_connect = None
 bd_cursor = None
 # Параметры
-MAX_DATAPOINTS = 2048 * 10  # Максимальное количество точек для хранения
+MAX_DATAPOINTS = 1024 * 30  # Максимальное количество точек для хранения
 # Создаём начальные массивы данных для четырёх линий
 dataplot = np.zeros(MAX_DATAPOINTS)
 dataplot2 = np.zeros(MAX_DATAPOINTS)
@@ -202,18 +202,19 @@ def save_to_file(show_plot=False):
 
                     data_iter = data_list[8].split(";")
                     # Преобразуем данные из data_iter в числа для первой линии
-                    new_data1 = [int(x) for x in data_iter[9:-2:4]]
+                    new_data1 = [int(x) for x in data_iter[0:-2:4]]
                     # Данные для второй линии
-                    new_data2 = [int(x) for x in data_iter[10:-2:4]]
+                    new_data2 = [int(x) for x in data_iter[1:-2:4]]
                     # Данные для третьей линии
-                    new_data3 = [int(x) for x in data_iter[11:-2:4]]
+                    new_data3 = [int(x) for x in data_iter[2:-2:4]]
                     # Данные для четвёртой линии
-                    new_data4 = [int(x) for x in data_iter[12:-2:4]]
+                    new_data4 = [int(x) for x in data_iter[3::4]]
 
                     time = f"{data_list[4]}:{data_list[5]}:{data_list[6]}.{data_list[7]}"
 
+                    print(len(new_data4))
                     bd_write_data(bd_connect, "data_records" , "2025-02-07", counter, time,
-                                  new_data4, new_data1, new_data2, new_data3)
+                                  new_data1, new_data2, new_data3, new_data4)
 
                     if show_plot:
                         dataplot = np.append(dataplot, new_data1)[-MAX_DATAPOINTS:]

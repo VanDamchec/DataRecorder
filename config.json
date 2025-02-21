@@ -10,9 +10,9 @@
         "port": "5432"
     },
     "sensor_coefficients": {
-        "force": {"k": 4.92005, "b": -0.031},
-        "displacement": {"k": 10.0729, "b": 140.476},
-        "temperature": {"k": 4.92005, "b": -0.031},
+        "force": {"k": 5.82005, "b": -0.031},
+        "displacement": {"k": 10.0729, "b": 0},
+        "temperature": {"k": 10, "b": 0},
         "rpm": {"k": 1, "b": 0}
     },
     "graph_limits": {
