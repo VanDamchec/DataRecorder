@@ -6,7 +6,7 @@ from PySide2.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QTableWidgetItem, QComboBox, QRadioButton, QCheckBox, QFileDialog,
                                QProgressBar, QTextEdit, QFrame)
 from PySide2.QtCore import Qt, QTimer, QThread, Signal
-from PySide2.QtGui import QFont
+from PySide2.QtGui import QFont, QPixmap
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.animation import FuncAnimation
@@ -154,14 +154,7 @@ class MainWindow(QMainWindow):
         # Нижняя секция с тремя горизонтальными областями
         self.bottom_layout_init(main_layout)
 
-    def top_layout_init(self, main_layout):
-        # Верхняя секция с тремя горизонтальными областями
-        top_section = QFrame()
-        top_section.setFrameShape(QFrame.StyledPanel)
-        top_layout = QHBoxLayout(top_section)
-        main_layout.addWidget(top_section, 1)
-
-        # 1) Область ввода данных
+    def top_left_init(self, top_layout):
         input_data_area = QFrame()
         input_data_area.setFrameShape(QFrame.StyledPanel)
         input_data_layout = QVBoxLayout(input_data_area)
@@ -182,21 +175,150 @@ class MainWindow(QMainWindow):
                 line_edit = QLineEdit()
                 input_data_layout.addWidget(line_edit)
 
-        # 2) Таблица с параметрами испытаний
+    def top_middle_init(self, top_layout):
+        # Создание области для таблицы
         table_area = QFrame()
         table_area.setFrameShape(QFrame.StyledPanel)
         table_layout = QVBoxLayout(table_area)
-        top_layout.addWidget(table_area, 3)
+        top_layout.addWidget(table_area, 4)
 
-        table = QTableWidget(10, 4)
-        table.setHorizontalHeaderLabels(["Наименование", "Требования ТУ", "Факт."])
-        table_layout.addWidget(table)
+        # Горизонтальная область для таблицы и дополнительных элементов
+        horizontal_layout = QHBoxLayout()
 
-        # 3) Область графиков (только синусоида)
+        # Левая вертикальная область (таблица)
+        left_vertical_layout = QVBoxLayout()
+        self.table = QTableWidget(12, 3)  # 10 строк, 3 столбца
+        self.table.setHorizontalHeaderLabels(["Наименование", "Требования ТУ", "Факт."])
+
+        # Увеличение ширины первой колонки в два раза
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, header.Stretch)  # Первая колонка занимает больше места
+        header.setSectionResizeMode(1, header.ResizeToContents)  # Вторая колонка подстраивается под содержимое
+        header.setSectionResizeMode(2, header.ResizeToContents)  # Третья колонка подстраивается под содержимое
+
+        # Заполнение первых 10 строк информацией
+        data = [
+            ("Параметр 1", "Значение ТУ 1", "              "),
+            ("Параметр 2", "Значение ТУ 2", "              "),
+            ("Параметр 3", "Значение ТУ 3", "              "),
+            ("Параметр 4", "Значение ТУ 4", "              "),
+            ("Параметр 5", "Значение ТУ 5", "              "),
+            ("Параметр 6", "Значение ТУ 6", "              "),
+            ("Параметр 7", "Значение ТУ 7", "               "),
+            ("Параметр 8", "Значение ТУ 8", "               "),
+            ("Параметр 9", "Значение ТУ 9", "               "),
+            ("Параметр 10", "Значение ТУ 10", "              "),
+            ("Параметр 11", "Значение ТУ 11", "             "),
+            ("Параметр 12", "Значение ТУ 12", "             ")
+        ]
+
+        for row, (name, tu_value, fact_value) in enumerate(data):
+            self.table.setItem(row, 0, QTableWidgetItem(name))
+            self.table.setItem(row, 1, QTableWidgetItem(tu_value))
+            self.table.setItem(row, 2, QTableWidgetItem(fact_value))
+
+        # Изменение высоты строк (кроме первой и второй)
+        for row in range(1, 12):  # Начинаем с третьей строки (индекс 2)
+            self.table.setRowHeight(row, 10)
+
+        # Сделать третий столбец редактируемым
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 2)
+            if item:
+                item.setFlags(item.flags() | Qt.ItemIsEditable)  # Разрешить редактирование
+
+        # Обработка выделения строки при нажатии на ячейку
+        self.table.cellClicked.connect(self.on_cell_clicked)
+
+        left_vertical_layout.addWidget(self.table)
+
+        # Правая вертикальная область (таймер и кнопка)
+        right_vertical_layout = QVBoxLayout()
+
+        # Таймер в верхней части правой области
+        self.timer_label = QLabel("00:00:00")
+        self.timer_label.setAlignment(Qt.AlignCenter)
+        self.timer_label.setStyleSheet("font-size: 20px; font-weight: bold;")
+        right_vertical_layout.addWidget(self.timer_label)
+
+        # Инициализация таймера
+        self.timer = QTimer()
+        self.time_count = 0
+        self.timer.timeout.connect(self.update_timer)
+        self.timer.start(1000)  # Обновление каждую секунду
+
+        # Кнопка "ПОДТВЕРДИТЬ" в нижней части правой области
+        confirm_button = QPushButton("ПОДТВЕРДИТЬ")
+        confirm_button.setStyleSheet("font-size: 16px; padding: 10px;")
+        confirm_button.clicked.connect(self.on_confirm_clicked)
+        right_vertical_layout.addWidget(confirm_button)
+
+        # Добавление левой и правой областей в горизонтальный layout
+        horizontal_layout.addLayout(left_vertical_layout, 4)  # Левая область (таблица)
+        horizontal_layout.addLayout(right_vertical_layout, 1)  # Правая область (таймер + кнопка)
+
+        # Добавление горизонтального layout в основной layout
+        table_layout.addLayout(horizontal_layout)
+
+    def update_timer(self):
+        """Обновление таймера"""
+        self.time_count += 1
+        hours = self.time_count // 3600
+        minutes = (self.time_count % 3600) // 60
+        seconds = self.time_count % 60
+        self.timer_label.setText(f"{hours:02}:{minutes:02}:{seconds:02}")
+
+    def on_cell_clicked(self, row, column):
+        """Обработчик нажатия на ячейку"""
+        # Выделяем всю строку
+        self.table.selectRow(row)
+
+        # Получаем данные строки
+        name = self.table.item(row, 0).text()
+        tu_value = self.table.item(row, 1).text()
+        fact_value = self.table.item(row, 2).text()
+
+        # Сохраняем переменную с данными строки
+        selected_row_data = {
+            "Наименование": name,
+            "Требования ТУ": tu_value,
+            "Факт.": fact_value
+        }
+        print("Выбранная строка:", selected_row_data)
+
+
+    def on_confirm_clicked(self):
+        """Обработчик нажатия на кнопку 'ПОДТВЕРДИТЬ'"""
+        print("Кнопка 'ПОДТВЕРДИТЬ' нажата")
+
+        # Очищаем layout перед добавлением нового содержимого
+        while self.graph_layout.count():
+            item = self.graph_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # Загружаем изображение full_page_plot.png
+        self.image_label = QLabel()
+        pixmap = QPixmap("full_page_plot.png")  # Путь к изображению
+        if not pixmap.isNull():
+            self.image_label.setPixmap(pixmap.scaled(
+                self.graph_layout.parent().width(),
+                self.graph_layout.parent().height(),
+                aspectRatioMode=True
+            ))
+        else:
+            self.image_label.setText("Изображение не найдено")
+
+        # Добавляем QLabel с изображением в layout
+        self.graph_layout.addWidget(self.image_label, stretch=1)
+
+        # Добавляем QLabel с изображением в layout
+        self.graph_layout.addWidget(image_label, stretch=1)
+    def top_right_init(self, top_layout):
         graph_area = QFrame()
         graph_area.setFrameShape(QFrame.StyledPanel)
-        graph_layout = QVBoxLayout(graph_area)
-        graph_layout.setContentsMargins(0, 0, 0, 0)  # Убираем отступы
+        self.graph_layout = QVBoxLayout(graph_area)
+        self.graph_layout.setContentsMargins(0, 0, 0, 0)  # Убираем отступы
         top_layout.addWidget(graph_area, 3)
 
         # График 1: Синусоида
@@ -212,10 +334,10 @@ class MainWindow(QMainWindow):
         self.graph_canvas1.figure.tight_layout()
         self.graph_canvas1.figure.subplots_adjust(left=0.1, right=1, top=1, bottom=0.1)
         # Растягиваем график на всю доступную область
-        graph_layout.addWidget(self.graph_canvas1, stretch=1)
-        graph_layout.setContentsMargins(0, 0, 0, 0)  # Убираем отступы
+        self.graph_layout.addWidget(self.graph_canvas1, stretch=1)
+        self.graph_layout.setContentsMargins(0, 0, 0, 0)  # Убираем отступы
         self.ax1.grid(True)
-        graph_layout.addWidget(self.graph_canvas1)
+        self.graph_layout.addWidget(self.graph_canvas1)
 
         # Анимация с использованием FuncAnimation
         self.t1 = 0
@@ -225,6 +347,22 @@ class MainWindow(QMainWindow):
             interval=1000,  # Интервал обновления в миллисекундах
             cache_frame_data=False
         )
+
+    def top_layout_init(self, main_layout):
+        # Верхняя секция с тремя горизонтальными областями
+        top_section = QFrame()
+        top_section.setFrameShape(QFrame.StyledPanel)
+        top_layout = QHBoxLayout(top_section)
+        main_layout.addWidget(top_section, 4)
+
+        # 1) Область ввода данных
+        self.top_left_init(top_layout)
+
+        # 2) Таблица с параметрами испытаний
+        self.top_middle_init(top_layout)
+
+        # 3) Область графиков (только синусоида)
+        self.top_right_init(top_layout)
 
     def middle_layout_init(self, main_layout):
         middle_section = QFrame()
@@ -438,7 +576,7 @@ class MainWindow(QMainWindow):
         bottom_section = QFrame()
         bottom_section.setFrameShape(QFrame.StyledPanel)
         bottom_layout = QHBoxLayout(bottom_section)
-        main_layout.addWidget(bottom_section)
+        main_layout.addWidget(bottom_section, 1)
 
         # 1) Выбор параметров для вывода графика
         param_selection_area = QFrame()
